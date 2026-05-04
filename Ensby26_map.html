@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ensby26 — GPX Track</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  #app { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
+  header { padding: 10px 16px; background: #1a3a5c; color: #fff; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  .stats { display: flex; gap: 14px; font-size: 13px; opacity: 0.95; }
+  .stat strong { display: block; font-size: 15px; font-weight: 600; }
+  .stat span { font-size: 11px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.5px; }
+  #map { width: 100%; height: 100%; }
+  #elevation { height: 140px; background: #fafafa; border-top: 1px solid #ddd; padding: 8px 12px; box-sizing: border-box; }
+  #elevation svg { width: 100%; height: 100%; display: block; }
+  .leaflet-container { background: #aadaff; }
+  .start-marker, .end-marker {
+    background: #fff; border: 3px solid; border-radius: 50%; width: 14px !important; height: 14px !important;
+    margin-left: -7px !important; margin-top: -7px !important;
+  }
+  .start-marker { border-color: #2e7d32; }
+  .end-marker { border-color: #c62828; }
+  .hover-marker { background: #ff6b00; border: 2px solid #fff; border-radius: 50%; width: 12px !important; height: 12px !important; margin-left: -6px !important; margin-top: -6px !important; box-shadow: 0 0 0 2px #ff6b00; }
+  .stop-marker {
+    background: #1a3a5c; color: #fff; border: 2px solid #fff;
+    border-radius: 50%; width: 22px !important; height: 22px !important;
+    margin-left: -11px !important; margin-top: -11px !important;
+    font: 600 11px/18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>📍 Ensby26</h1>
+    <div class="stats">
+      <div class="stat"><strong id="dist">—</strong><span>Distance</span></div>
+      <div class="stat"><strong id="gain">—</strong><span>Ascent</span></div>
+      <div class="stat"><strong id="loss">—</strong><span>Descent</span></div>
+      <div class="stat"><strong id="elo">—</strong><span>Min elev.</span></div>
+      <div class="stat"><strong id="ehi">—</strong><span>Max elev.</span></div>
+      <div class="stat"><strong id="pts">—</strong><span>Points</span></div>
+    </div>
+  </header>
+  <div id="map"></div>
+  <div id="elevation"><svg id="elev-svg" preserveAspectRatio="none"></svg></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const TRACK = [[61.187508,10.418196,204],[61.187448,10.418251,205],[61.187398,10.418308,208],[61.187342,10.418375,208],[61.187329,10.418486,211],[61.187363,10.418577,211],[61.187385,10.418688,213],[61.187398,10.418807,213],[61.187356,10.418902,215],[61.187312,10.418977,215],[61.187259,10.418977,215],[61.187204,10.41902,215],[61.187168,10.419079,218],[61.187201,10.419147,217],[61.187224,10.419065,217],[61.187169,10.419028,215],[61.187111,10.419045,215],[61.187061,10.419115,218],[61.187022,10.419161,218],[61.186975,10.419242,217],[61.186933,10.419321,219],[61.186885,10.419366,219],[61.186835,10.419416,219],[61.186784,10.419427,218],[61.186724,10.419489,220],[61.186686,10.419592,220],[61.186675,10.419687,224],[61.186617,10.419774,223],[61.186612,10.419886,226],[61.186566,10.419958,226],[61.186508,10.419962,226],[61.186452,10.420012,227],[61.186413,10.420077,227],[61.186464,10.420137,230],[61.186519,10.420178,229],[61.18657,10.420204,229],[61.186631,10.420239,229],[61.186687,10.420309,232],[61.18671,10.420401,232],[61.186698,10.420492,235],[61.186681,10.420587,236],[61.18662,10.420617,240],[61.186589,10.420529,237],[61.186533,10.420495,237],[61.186488,10.420424,234],[61.18644,10.420477,238],[61.186386,10.420504,238],[61.186335,10.420564,238],[61.186281,10.420615,238],[61.186229,10.420651,239],[61.186201,10.420747,243],[61.18615,10.420691,243],[61.186089,10.420674,240],[61.186035,10.420641,241],[61.185981,10.420661,241],[61.185933,10.420699,241],[61.185871,10.420646,241],[61.185815,10.420644,241],[61.185758,10.420664,240],[61.185703,10.420722,240],[61.185637,10.420711,241],[61.185592,10.420809,246],[61.185587,10.420928,246],[61.185607,10.421031,250],[61.185635,10.421122,249],[61.185693,10.421141,253],[61.18575,10.42117,253],[61.185806,10.421173,252],[61.185861,10.421184,252],[61.185913,10.421184,252],[61.185866,10.421157,252],[61.185839,10.421268,252],[61.185854,10.42138,256],[61.1859,10.421492,259],[61.18594,10.421581,258],[61.185896,10.421706,263],[61.185929,10.421791,262],[61.185939,10.421917,267],[61.185977,10.422001,267],[61.186027,10.422052,271],[61.186081,10.422007,271],[61.186131,10.422064,270],[61.186146,10.422174,270],[61.186165,10.422279,274],[61.186167,10.422393,277],[61.186224,10.422393,276],[61.186257,10.422482,276],[61.18631,10.422527,278],[61.186332,10.422627,278],[61.186328,10.42272,281],[61.186322,10.422825,281],[61.186362,10.422881,281],[61.186413,10.42295,282],[61.186481,10.422923,282],[61.186532,10.422949,282],[61.186584,10.422993,282],[61.186556,10.422887,282],[61.186585,10.422816,278],[61.18654,10.422787,279],[61.186588,10.422747,278],[61.186654,10.422747,278],[61.186706,10.422739,277],[61.186742,10.422646,274],[61.186688,10.422551,274],[61.186649,10.422473,271],[61.186607,10.42238,271],[61.186576,10.422286,267],[61.186537,10.422203,269],[61.186491,10.422129,269],[61.186508,10.422003,265],[61.186533,10.421904,262],[61.186485,10.421856,262],[61.186534,10.421931,262],[61.186578,10.421993,264],[61.186635,10.422025,264],[61.186676,10.421962,263],[61.186676,10.42185,259],[61.186697,10.421751,259],[61.186752,10.42168,255],[61.18681,10.421704,255],[61.186863,10.421695,254],[61.186915,10.421661,254],[61.18688,10.421545,254],[61.186855,10.421644,254],[61.186881,10.421763,257],[61.18693,10.421767,257],[61.186982,10.421827,257],[61.187032,10.42184,256],[61.187094,10.421864,258],[61.187064,10.421764,256],[61.187017,10.421699,256],[61.187072,10.421632,253],[61.187128,10.42167,255],[61.18719,10.42167,254],[61.187246,10.421642,254],[61.1873,10.421653,253],[61.187322,10.421765,253],[61.187377,10.421797,252],[61.187441,10.42181,255],[61.187486,10.421783,251],[61.187526,10.421686,251],[61.187565,10.421598,250],[61.187592,10.421674,250],[61.187643,10.421667,249],[61.187697,10.421696,249],[61.187697,10.421817,252],[61.18768,10.421907,252],[61.187672,10.422032,256],[61.187663,10.422157,260],[61.187735,10.422088,255],[61.187789,10.4221,255],[61.187844,10.422085,255],[61.187892,10.422026,255],[61.187931,10.421961,254],[61.187986,10.421912,254],[61.187993,10.421796,250],[61.187975,10.421682,247],[61.187975,10.421561,247],[61.187921,10.421535,244],[61.187868,10.42149,245],[61.18787,10.42139,245],[61.187924,10.421376,244],[61.18798,10.421374,243],[61.188032,10.421333,241],[61.18808,10.421363,243],[61.188134,10.421245,240],[61.188132,10.421118,237],[61.188098,10.421017,237],[61.188091,10.420904,235],[61.188081,10.420784,235],[61.188025,10.420784,236],[61.187971,10.420797,236],[61.187916,10.420798,234],[61.18786,10.420785,235],[61.1878,10.420767,235],[61.187744,10.420747,236],[61.187695,10.420672,236],[61.187648,10.42065,233],[61.187698,10.420603,232],[61.187756,10.420601,232],[61.187804,10.420573,232],[61.187823,10.420446,232],[61.187837,10.42033,229],[61.18782,10.420197,227],[61.187759,10.420174,227],[61.187695,10.42018,227],[61.187634,10.420196,227],[61.187575,10.420244,227],[61.187506,10.420279,227],[61.187556,10.420351,230],[61.187605,10.420378,230],[61.18759,10.420269,227],[61.187603,10.420171,227],[61.187596,10.420057,225],[61.187558,10.419966,225],[61.187515,10.419876,223],[61.187447,10.419868,223],[61.187417,10.419958,225],[61.187354,10.419995,225],[61.187356,10.42011,225],[61.18741,10.420104,225],[61.187411,10.420007,225],[61.187389,10.419908,223],[61.187343,10.419845,223],[61.187298,10.419848,223],[61.187242,10.41989,223],[61.187186,10.419945,224],[61.18714,10.419945,224],[61.187094,10.4199,225],[61.187042,10.419872,225],[61.187042,10.419772,223],[61.187084,10.419845,225],[61.187129,10.419836,224],[61.187156,10.419742,222],[61.187192,10.419635,222],[61.187238,10.419573,220],[61.18728,10.419512,219],[61.187327,10.419561,219],[61.187389,10.419576,220],[61.18743,10.419537,218],[61.187441,10.419414,218],[61.187483,10.419301,216],[61.187494,10.419155,215],[61.187489,10.419043,215],[61.187435,10.419002,215],[61.187423,10.418888,215],[61.187472,10.418876,214],[61.18753,10.418872,213],[61.187587,10.41883,213],[61.18764,10.418781,211],[61.187597,10.418719,212],[61.187616,10.418599,209],[61.187602,10.418487,210],[61.187596,10.418382,208],[61.187596,10.418272,208],[61.187601,10.418129,203],[61.187601,10.418129,203]];
+
+// Compute cumulative distance + stats
+function haversine(a,b){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(b[0]-a[0]), dLon=toRad(b[1]-a[1]);
+  const lat1=toRad(a[0]), lat2=toRad(b[0]);
+  const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+const cumDist=[0];
+for(let i=1;i<TRACK.length;i++) cumDist.push(cumDist[i-1]+haversine(TRACK[i-1],TRACK[i]));
+const totalDist=cumDist[cumDist.length-1];
+const eles=TRACK.map(p=>p[2]);
+let gain=0, loss=0;
+for(let i=1;i<eles.length;i++){
+  const d=eles[i]-eles[i-1];
+  if(d>0) gain+=d; else loss-=d;
+}
+document.getElementById('dist').textContent=(totalDist/1000).toFixed(2)+' km';
+document.getElementById('gain').textContent=Math.round(gain)+' m';
+document.getElementById('loss').textContent=Math.round(loss)+' m';
+document.getElementById('elo').textContent=Math.min(...eles)+' m';
+document.getElementById('ehi').textContent=Math.max(...eles)+' m';
+document.getElementById('pts').textContent=TRACK.length;
+
+// Map
+const latlngs=TRACK.map(p=>[p[0],p[1]]);
+const map=L.map('map');
+
+const topo=L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png',{
+  maxZoom:19, attribution:'© <a href="https://www.kartverket.no/">Kartverket</a>'
+});
+const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'© OpenStreetMap contributors'
+});
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19, attribution:'Imagery © Esri'
+});
+topo.addTo(map);
+L.control.layers({'Topo (Kartverket)':topo,'OpenStreetMap':osm,'Satellitt':sat}).addTo(map);
+
+const line=L.polyline(latlngs,{color:'#e63946',weight:4,opacity:0.9}).addTo(map);
+map.fitBounds(line.getBounds(),{padding:[30,30]});
+
+L.marker(latlngs[0],{icon:L.divIcon({className:'start-marker'})})
+ .addTo(map).bindPopup('<b>Start</b><br>'+TRACK[0][2]+' m');
+L.marker(latlngs[latlngs.length-1],{icon:L.divIcon({className:'end-marker'})})
+ .addTo(map).bindPopup('<b>End</b><br>'+TRACK[TRACK.length-1][2]+' m');
+
+// Numbered stops (1–24) — derived from sharp direction reversals + dense clusters
+// in TRACK. Index references the TRACK array; popup shows along-track km + elev.
+const STOPS = [
+  {n: 1,  i: 3},   {n: 2,  i: 14},  {n: 3,  i: 32},  {n: 4,  i: 40},
+  {n: 5,  i: 61},  {n: 6,  i: 70},  {n: 7,  i: 81},  {n: 8,  i: 95},
+  {n: 9,  i: 102}, {n: 10, i: 110}, {n: 11, i: 122}, {n: 12, i: 128},
+  {n: 13, i: 141}, {n: 14, i: 148}, {n: 15, i: 160}, {n: 16, i: 169},
+  {n: 17, i: 177}, {n: 18, i: 183}, {n: 19, i: 189}, {n: 20, i: 199},
+  {n: 21, i: 210}, {n: 22, i: 218}, {n: 23, i: 225}, {n: 24, i: 236},
+];
+STOPS.forEach(s => {
+  const p = TRACK[s.i];
+  L.marker([p[0], p[1]], {
+    icon: L.divIcon({className: 'stop-marker', html: String(s.n)}),
+    zIndexOffset: 500,
+  }).addTo(map).bindPopup(
+    `<b>Stop ${s.n}</b><br>${(cumDist[s.i]/1000).toFixed(2)} km · ${p[2]} m`
+  );
+});
+
+let hoverMarker=null;
+
+// Elevation profile (SVG)
+const svg=document.getElementById('elev-svg');
+const W=1000, H=140, padL=40, padR=10, padT=10, padB=22;
+svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+const minE=Math.min(...eles), maxE=Math.max(...eles);
+const xScale=d=>padL+(d/totalDist)*(W-padL-padR);
+const yScale=e=>padT+(1-(e-minE)/(maxE-minE))*(H-padT-padB);
+let path='M '+xScale(0)+' '+yScale(eles[0]);
+for(let i=1;i<eles.length;i++) path+=' L '+xScale(cumDist[i])+' '+yScale(eles[i]);
+const fill=path+` L ${xScale(totalDist)} ${H-padB} L ${padL} ${H-padB} Z`;
+
+svg.innerHTML=`
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#e63946" stop-opacity="0.5"/>
+    <stop offset="100%" stop-color="#e63946" stop-opacity="0.05"/>
+  </linearGradient></defs>
+  <path d="${fill}" fill="url(#g)"/>
+  <path d="${path}" fill="none" stroke="#e63946" stroke-width="1.5"/>
+  <line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="#999"/>
+  <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#999"/>
+  <text x="6" y="${yScale(maxE)+4}" font-size="10" fill="#555">${maxE} m</text>
+  <text x="6" y="${yScale(minE)+4}" font-size="10" fill="#555">${minE} m</text>
+  <text x="${padL}" y="${H-6}" font-size="10" fill="#555">0 km</text>
+  <text x="${W-padR-30}" y="${H-6}" font-size="10" fill="#555">${(totalDist/1000).toFixed(2)} km</text>
+  <line id="cursor" x1="-10" y1="${padT}" x2="-10" y2="${H-padB}" stroke="#1a3a5c" stroke-width="1" stroke-dasharray="3,2"/>
+  <text id="cursor-label" x="0" y="0" font-size="11" fill="#1a3a5c" font-weight="600"></text>
+`;
+
+const cursor=svg.querySelector('#cursor');
+const cursorLabel=svg.querySelector('#cursor-label');
+
+svg.addEventListener('mousemove',e=>{
+  const rect=svg.getBoundingClientRect();
+  const x=((e.clientX-rect.left)/rect.width)*W;
+  const d=((x-padL)/(W-padL-padR))*totalDist;
+  if(d<0||d>totalDist) return;
+  let idx=0;
+  for(let i=0;i<cumDist.length;i++){ if(cumDist[i]>=d){ idx=i; break; } }
+  const p=TRACK[idx];
+  cursor.setAttribute('x1',x); cursor.setAttribute('x2',x);
+  cursorLabel.setAttribute('x',Math.min(x+6,W-100));
+  cursorLabel.setAttribute('y',padT+12);
+  cursorLabel.textContent=`${(d/1000).toFixed(2)} km · ${p[2]} m`;
+  if(hoverMarker) map.removeLayer(hoverMarker);
+  hoverMarker=L.marker([p[0],p[1]],{icon:L.divIcon({className:'hover-marker'})}).addTo(map);
+});
+svg.addEventListener('mouseleave',()=>{
+  cursor.setAttribute('x1',-10); cursor.setAttribute('x2',-10);
+  cursorLabel.textContent='';
+  if(hoverMarker){ map.removeLayer(hoverMarker); hoverMarker=null; }
+});
+</script>
+</body>
+</html>
