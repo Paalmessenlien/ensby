@@ -4,13 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single self-contained static page, `Ensby26_map.html`, that renders one hardcoded GPS track on a Leaflet map with a custom SVG elevation profile. No build step, no package manager, no tests, no server — open the file directly in a browser.
+A single self-contained static page, `Ensby26_map.html`, that renders one hardcoded GPS track on a Leaflet map with a custom SVG elevation profile, plus numbered stop markers. No build step, no package manager, no tests, no server — open the file directly in a browser. Published to GitHub Pages at https://paalmessenlien.github.io/ensby/ (root-level `index.html` redirects to the map).
 
-The track location is in Innlandet, Norway (~61.18°N, 10.42°E), which is why Kartverket topo tiles are the default layer.
+The track location is in Innlandet, Norway (~61.26°N, 10.41°E), which is why Kartverket topo tiles are the default layer.
 
 ## Track data
 
-The `TRACK` constant (top of the `<script>` block, around line 50) is the source of truth: an array of `[lat, lon, elevation_m]` tuples. Despite the file's name, there is no GPX file in the repo — the points are pre-baked into the HTML. To swap tracks, replace the array; everything downstream (header stats, polyline, elevation SVG, hover sync) recomputes from it on load.
+The `TRACK` constant (a single long line in the `<script>` block; find with `grep -n 'const TRACK' Ensby26_map.html`) is the source of truth: an array of `[lat, lon, elevation_m]` tuples. The current track is derived from `tur1.gpx` (Norgeskart export). To swap tracks, replace the array; everything downstream (header stats, polyline, elevation SVG, hover sync, stop markers) recomputes from it on load.
+
+Stops in the `STOPS` array reference TRACK by index (`{n, i}`). They were detected from `tur1.gpx`'s timestamps as low-velocity pause segments (speed < 0.5 m/s for ≥ 5 s, near-duplicates merged within 30 m). If you replace TRACK, recompute STOPS or the indices will point at the wrong points.
 
 ## Architecture
 
